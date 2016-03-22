@@ -1,0 +1,3 @@
+﻿  Skeleton.cpp
+c:\users\tomi\desktop\hf\opengl\programs\skeleton\skeleton\skeleton.cpp(481): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+  Skeleton.vcxproj -> C:\Users\Tomi\Desktop\Hf\opengl\Programs\Skeleton\bin\Skeleton.exe
