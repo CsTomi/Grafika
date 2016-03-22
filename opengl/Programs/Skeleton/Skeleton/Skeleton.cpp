@@ -354,12 +354,12 @@ public:
 
 class LineStrip {
 	const float tension = 0.8f;
-	const static int nSplinePoint = 100;     // amount of the CR spline point between two CP's
+	const static int nSplinePoint = 20;     // amount of the CR spline point between two CP's
 	GLuint vao, spline_vao, vbo, spline_vbo; // vertex array object, vertex buffer object
 	int   nVertices;                // number of vertices
 	float vertexData[100];         // interleaved data of coordinates and colors
 	float time[20];               // CP's time
-	float spline[nSplinePoint];  // points between the CP's
+	float spline[5 * nSplinePoint];  // points between the CP's
 
 public:
 	LineStrip() {
@@ -369,12 +369,12 @@ public:
 	void Create() {
 		glGenVertexArrays(1, &vao);
 		glBindVertexArray(vao);
-		
-		glGenVertexArrays(1, &spline_vao);
-		glBindVertexArray(spline_vao);
 
 		glGenBuffers(1, &vbo); // Generate 1 vertex buffer object for the CP's
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+		glGenVertexArrays(1, &spline_vao);
+		glBindVertexArray(spline_vao);
 
 		glGenBuffers(1, &spline_vbo); // Generate 1 vertex buffer object for the spline
 		glBindBuffer(GL_ARRAY_BUFFER, spline_vbo);
@@ -382,12 +382,17 @@ public:
 		// Enable the vertex attribute arrays
 		glEnableVertexAttribArray(0);  // attribute array 0
 		glEnableVertexAttribArray(1);  // attribute array 1
-
+		glEnableVertexAttribArray(2);  // attribute array 2
+		glEnableVertexAttribArray(3);  // attribute array 3
 
 		// Map attribute array 0 to the vertex data of the interleaved vbo
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void*>(0)); // attribute array, components/attribute, component type, normalize?, stride, offset
+		// attribute array, components/attribute, component type, normalize?, stride, offset
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void*>(0));
 		// Map attribute array 1 to the color data of the interleaved vbo
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void*>(2 * sizeof(float)));
+		
+		glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void*>(0));
+		glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void*>(2 * sizeof(float)));
 	}
 
 	//Kész, nem kell bántani
@@ -404,7 +409,7 @@ public:
 		vertexData[5 * nVertices + 3] = 1; // green
 		vertexData[5 * nVertices + 4] = 0; // blue
 		nVertices++;
-		printf("\nPoint: (%f,%f)", vertexData[5 * nVertices + 1], vertexData[5 * nVertices + 1]);
+		printf("\nPoint: (%f,%f)", vertexData[5 * (nVertices-1)], vertexData[5 * (nVertices-1)]);
 		// copy data to the GPU
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
 		glBufferData(GL_ARRAY_BUFFER, nVertices * 5 * sizeof(float), vertexData, GL_DYNAMIC_DRAW);
@@ -415,31 +420,34 @@ public:
 		if (nVertices > 0) {
 			mat4 VPTransform = camera.V() * camera.P();
 			vec4 splinePoint;
-			float ti = 100.0f; // time interval
-
-			glBindBuffer(GL_ARRAY_BUFFER, spline_vbo);
-			glBufferData(GL_ARRAY_BUFFER, nSplinePoint * sizeof(float), spline, GL_DYNAMIC_DRAW);
+			float ti = 0.01f; // time interval
 
 			for (int i = 0; i < nVertices; i++) // itarete over the CP's
 			{
 				float t = time[i]; // i. CP's time
 
 				// every spline point has a x and y coordinate
-				for (int j = 0; j < nSplinePoint && t < time[i+1]; j+=2)
+				for (int j = 0; j < nSplinePoint && t < time[i+1]; j++)
 				{
 					//TODO
 					splinePoint = getSplinePoint(i, t);
-					spline[j] = splinePoint.v[0];     // x
-					spline[j + 1] = splinePoint.v[1]; // y
+					spline[5 * j] = splinePoint.v[0];     // x
+					spline[5 * j + 1] = splinePoint.v[1]; // y
+					spline[5 * j + 2] = 0.0f;
+					spline[5 * j + 3] = 1.0f;
+					spline[5 * j + 4] = 1.0f;
 					t += ti;
 				}
+
+				glBindBuffer(GL_ARRAY_BUFFER, spline_vbo);
+				glBufferData(GL_ARRAY_BUFFER, nSplinePoint * 5 * sizeof(float), spline, GL_DYNAMIC_DRAW);
 
 				int location = glGetUniformLocation(shaderProgram, "MVP");
 				if (location >= 0) glUniformMatrix4fv(location, 1, GL_TRUE, VPTransform);
 				else printf("uniform MVP cannot be set\n");
 
 				glBindVertexArray(spline_vao);
-				glDrawArrays(GL_LINE_STRIP, 0, nSplinePoint);//magic
+				glDrawArrays(GL_LINES, 0, nSplinePoint);
 			}
 		}
 	}
@@ -587,7 +595,7 @@ void onMouse(int button, int state, int pX, int pY) {
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {  // GLUT_LEFT_BUTTON / GLUT_RIGHT_BUTTON and GLUT_DOWN / GLUT_UP
 		float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
 		float cY = 1.0f - 2.0f * pY / windowHeight;
-		lineStrip.AddPoint(cX, cY, (float)glutGet(GLUT_ELAPSED_TIME));
+		lineStrip.AddPoint(cX, cY, (float)glutGet(GLUT_ELAPSED_TIME)/1000.0f);
 		glutPostRedisplay();     // redraw
 	}
 }
